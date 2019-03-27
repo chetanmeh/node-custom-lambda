@@ -1,6 +1,6 @@
 FROM lambci/lambda-base:build
 
-COPY bootstrap.c bootstrap.js /opt/
+COPY bootstrap.c runner.js bootstrap.js /opt/
 
 ARG NODE_VERSION
 

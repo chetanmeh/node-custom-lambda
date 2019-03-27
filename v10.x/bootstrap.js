@@ -1,5 +1,5 @@
 const http = require('http')
-const { promisify } = require('util')
+const runner = require('./runner')
 
 const RUNTIME_PATH = '/2018-06-01/runtime'
 
@@ -39,7 +39,7 @@ async function processEvents(handler) {
     const { event, context } = await nextInvocation()
     let result
     try {
-      result = await handler(event, context)
+      result = await runner(event, context, handler)
     } catch (e) {
       await invokeError(e, context)
       continue
@@ -131,8 +131,15 @@ function getHandler() {
 
   const [modulePath, handlerName] = appParts
 
-  // Let any errors here be thrown as-is to aid debugging
-  const app = require(LAMBDA_TASK_ROOT + '/' + modulePath)
+  let app
+  try {
+    app = require(LAMBDA_TASK_ROOT + '/' + modulePath)
+  } catch (e) {
+    if (e.code === 'MODULE_NOT_FOUND') {
+      throw new Error(`Unable to import module '${modulePath}'`)
+    }
+    throw e
+  }
 
   const userHandler = app[handlerName]
 
@@ -142,7 +149,7 @@ function getHandler() {
     throw new Error(`Handler '${handlerName}' from '${modulePath}' is not a function`)
   }
 
-  return userHandler.length >= 3 ? promisify(userHandler) : userHandler
+  return userHandler
 }
 
 async function request(options) {
